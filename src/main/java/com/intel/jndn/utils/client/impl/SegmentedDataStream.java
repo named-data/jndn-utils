@@ -16,19 +16,16 @@ package com.intel.jndn.utils.client.impl;
 import com.intel.jndn.utils.client.OnComplete;
 import com.intel.jndn.utils.client.OnException;
 import com.intel.jndn.utils.client.DataStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import net.named_data.jndn.Data;
-import net.named_data.jndn.Interest;
-import net.named_data.jndn.Name;
-import net.named_data.jndn.OnData;
-import net.named_data.jndn.OnTimeout;
+
+import net.named_data.jndn.*;
 import net.named_data.jndn.encoding.EncodingException;
+import net.named_data.jndn.sync.ChronoSync2013;
 
 /**
  * As packets are received, they are mapped by their last component's segment
@@ -49,7 +46,10 @@ public class SegmentedDataStream implements DataStream {
   private volatile long current = -1;
   private volatile long end = Long.MAX_VALUE;
   private Map<Long, Data> packets = new HashMap<>();
-  private List<Object> observers = new ArrayList<>();
+  private List<OnData> observersOnData = new ArrayList<>();
+  private List<OnComplete> observersOnComplete = new ArrayList<>();
+  private List<OnException> observersOnException = new ArrayList<>();
+  private List<OnTimeout> observersOnTimeout = new ArrayList<>();
   private Exception exception;
 
   @Override
@@ -90,22 +90,22 @@ public class SegmentedDataStream implements DataStream {
 
   @Override
   public void observe(OnData onData) {
-    observers.add(onData);
+    observersOnData.add(onData);
   }
 
   @Override
   public void observe(OnComplete onComplete) {
-    observers.add(onComplete);
+    observersOnComplete.add(onComplete);
   }
 
   @Override
   public void observe(OnException onException) {
-    observers.add(onException);
+    observersOnException.add(onException);
   }
 
   @Override
   public void observe(OnTimeout onTimeout) {
-    observers.add(onTimeout);
+    observersOnTimeout.add(onTimeout);
   }
 
   @Override
@@ -145,10 +145,10 @@ public class SegmentedDataStream implements DataStream {
       do {
         current++;
         assert (packets.containsKey(current));
-        Data retrieved = packets.get(current);
-        observersOfType(OnData.class).stream().forEach((OnData cb) -> {
+        final Data retrieved = packets.get(current);
+        for (OnData cb : observersOnData) {
           cb.onData(interest, retrieved);
-        });
+        }
       } while (hasNextPacket());
     }
 
@@ -172,28 +172,24 @@ public class SegmentedDataStream implements DataStream {
 
   @Override
   public synchronized void onComplete() {
-    observersOfType(OnComplete.class).stream().forEach((OnComplete cb) -> {
+    for (OnComplete cb : observersOnComplete) {
       cb.onComplete();
-    });
+    }
   }
 
   @Override
   public synchronized void onTimeout(Interest interest) {
-    observersOfType(OnTimeout.class).stream().forEach((OnTimeout cb) -> {
+    for (OnTimeout cb : observersOnTimeout) {
       cb.onTimeout(interest);
-    });
+    }
   }
 
   @Override
   public synchronized void onException(Exception exception) {
     this.exception = exception;
 
-    observersOfType(OnException.class).stream().forEach((OnException cb) -> {
+    for (OnException cb : observersOnException) {
       cb.onException(exception);
-    });
-  }
-
-  private <T> List<T> observersOfType(Class<T> type) {
-    return observers.stream().filter((Object o) -> type.isAssignableFrom(o.getClass())).map((o) -> (T) o).collect(Collectors.toList());
+    }
   }
 }

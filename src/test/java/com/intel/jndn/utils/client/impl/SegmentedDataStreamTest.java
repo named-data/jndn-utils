@@ -20,6 +20,7 @@ import net.named_data.jndn.Data;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.Name.Component;
+import net.named_data.jndn.OnData;
 import net.named_data.jndn.encoding.EncodingException;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -50,13 +51,16 @@ public class SegmentedDataStreamTest {
   public void testAddingUnorderedData() throws StreamException {
     Name name = new Name("/test/segmented/data/stream");
     Interest interest = new Interest(name);
-    ArrayList<Long> segments = new ArrayList<>();
+    final ArrayList<Long> segments = new ArrayList<>();
 
-    instance.observe((i, d) -> {
-      try {
-        segments.add(d.getName().get(-1).toSegment());
-      } catch (EncodingException ex) {
-        throw new RuntimeException(ex);
+    instance.observe(new OnData() {
+      @Override
+      public void onData(Interest i, Data d) {
+        try {
+          segments.add(d.getName().get(-1).toSegment());
+        } catch (EncodingException ex) {
+          throw new RuntimeException(ex);
+        }
       }
     });
 
@@ -99,10 +103,10 @@ public class SegmentedDataStreamTest {
   @Test
   public void testOrderedPackets() {
     int end = 10;
-    IntStream.range(0, end).forEach((i) -> {
+    for (int i = 0; i < end; i++) {
       addPacketToInstance(i);
       assertEquals(i, instance.current());
-    });
+    };
 
     assertEquals(end, instance.list().length);
   }

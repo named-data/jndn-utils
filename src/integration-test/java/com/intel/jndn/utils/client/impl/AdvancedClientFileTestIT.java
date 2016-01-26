@@ -18,6 +18,7 @@ import com.intel.jndn.utils.TestHelper;
 import com.intel.jndn.utils.server.impl.SegmentedServerHelper;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -68,14 +69,21 @@ public class AdvancedClientFileTestIT {
     long startTime = System.currentTimeMillis();
     AdvancedClient client = new AdvancedClient();
     List<CompletableFuture<Data>> requests = expressInterests(client, consumer, PREFIX, NUM_MESSAGES);
-    List<Data> datas = requests.stream().map((f) -> TestHelper.retrieve(f)).collect(Collectors.toList());
+    List<Data> datas = new ArrayList<>();
+    for (CompletableFuture<Data> f : requests) {
+      datas.add(TestHelper.retrieve(f));
+    }
     long endTime = System.currentTimeMillis();
 
     logger.info(String.format("Transfered %d bytes in %d ms", MESSAGE_SIZE_BYTES * NUM_MESSAGES, endTime - startTime));
   }
 
   private List<CompletableFuture<Data>> expressInterests(Client client, Face face, Name name, int count) {
-    return IntStream.range(0, count).boxed().map((i) -> client.getAsync(face, name)).collect(Collectors.toList());
+    List<CompletableFuture<Data>> list = new ArrayList<>();
+    for (int i = 0; i < count; i++) {
+      list.add(client.getAsync(face, name));
+    }
+    return list;
   }
 
   private class AdvancedDataServer implements OnInterestCallback {
