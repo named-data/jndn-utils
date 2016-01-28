@@ -15,16 +15,15 @@ package com.intel.jndn.utils.client.impl;
 
 import com.intel.jndn.mock.MockFace;
 import com.intel.jndn.utils.TestHelper;
-import com.intel.jndn.utils.TestHelper.TestCounter;
 import com.intel.jndn.utils.client.DataStream;
-import java.util.Random;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
-import static org.junit.Assert.assertEquals;
-
 import net.named_data.jndn.OnData;
+import org.junit.Before;
 import org.junit.Test;
+
+import static junit.framework.TestCase.assertEquals;
 
 /**
  * Test DefaultSegmentedClient
@@ -33,20 +32,27 @@ import org.junit.Test;
  */
 public class DefaultSegmentedClientTest {
 
-  DefaultSegmentedClient instance = new DefaultSegmentedClient();
+  DefaultSegmentedClient instance;
+  MockFace face;
+  int counter;
+
+  @Before
+  public void setUp() throws Exception {
+    instance = new DefaultSegmentedClient();
+    face = new MockFace();
+    counter = 0;
+  }
 
   @Test
   public void testGetSegmentsAsync() throws Exception {
-    MockFace face = new MockFace();
     Name name = new Name("/test/segmented/client");
     Interest interest = new Interest(name);
     DataStream stream = instance.getSegmentsAsync(face, interest);
 
-    final TestCounter counter = new TestCounter();
     stream.observe(new OnData() {
       @Override
       public void onData(Interest interest, Data data) {
-        counter.count++;
+        counter++;
       }
     });
 
@@ -54,7 +60,7 @@ public class DefaultSegmentedClientTest {
       stream.onData(interest, segment);
     }
 
-    assertEquals(5, counter.count);
+    assertEquals(5, counter);
     assertEquals("01234", stream.assemble().getContent().toString());
   }
 
@@ -77,26 +83,25 @@ public class DefaultSegmentedClientTest {
 
   @Test
   public void verifyThatSegmentsAreRetrievedOnlyOnce() throws Exception {
-    MockFace face = new MockFace();
     Name name = new Name("/test/segmented/client");
     Interest interest = new Interest(name);
     DataStream stream = instance.getSegmentsAsync(face, interest);
 
-    final TestCounter counter = new TestCounter();
     stream.observe(new OnData() {
       @Override
       public void onData(Interest interest, Data data) {
-        counter.count++;
+        counter++;
       }
     });
 
     for (Data segment : TestHelper.buildSegments(name, 0, 5)) {
-      face.putData(segment);
-      face.processEvents();
+      face.receive(segment);
     }
 
-    assertEquals(5, counter.count);
-    assertEquals(5, face.getTransport().getSentInterestPackets().size());
+    TestHelper.run(face, 10);
+
+    assertEquals(5, counter);
+    assertEquals(5, face.sentInterests.size());
     assertEquals("01234", stream.assemble().getContent().toString());
   }
 }

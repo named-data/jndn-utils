@@ -63,6 +63,7 @@ public class DefaultRetryClient implements RetryClient {
    */
   synchronized private void retryInterest(RetryContext context) throws IOException {
     logger.info("Retrying interest: " + context.interest.toUri());
+    context.interest.setNonce(null);
     context.face.expressInterest(context.interest, context, context);
     totalRetries++;
   }

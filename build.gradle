@@ -42,10 +42,10 @@ configurations {
 
 dependencies {
   compile 'com.google.guava:guava:18.0'
-  compile 'net.named-data:jndn:0.7'
+  compile 'net.named-data:jndn:0.9'
 
   testCompile 'junit:junit:4.12'
-  testCompile 'com.intel.jndn.mock:jndn-mock:0.11.0'
+  testCompile 'net.named-data.jndn-extra:jndn-mock:1.0.1-SNAPSHOT'
 }
 
 task javadocJar(type: Jar) {

@@ -13,11 +13,12 @@
  */
 package com.intel.jndn.utils.client.impl;
 
-import com.intel.jndn.utils.client.impl.SimpleClient;
 import com.intel.jndn.mock.MockFace;
+import com.intel.jndn.utils.TestHelper;
+import net.named_data.jndn.security.SecurityException;
+import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
-import com.intel.jndn.mock.MockTransport;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -41,90 +42,79 @@ import org.junit.rules.ExpectedException;
 public class SimpleClientTest {
 
   private static final Logger logger = Logger.getLogger(SimpleClient.class.getName());
-  public ExpectedException thrown = ExpectedException.none();
 
-  @Test
-  public void testGetSync() throws IOException {
-    // setup face
-    MockTransport transport = new MockTransport();
-    Face face = new Face(transport, null);
+  MockFace face;
+  SimpleClient instance;
 
-    // setup return data
-    Data response = new Data(new Name("/test/sync"));
-    response.setContent(new Blob("..."));
-    transport.respondWith(response);
-
-    // retrieve data
-    logger.info("Client expressing interest synchronously: /test/sync");
-    SimpleClient client = new SimpleClient();
-    Data data = client.getSync(face, new Name("/test/sync"));
-    assertEquals(new Blob("...").buf(), data.getContent().buf());
+  @Before
+  public void init() throws SecurityException {
+    face = new MockFace();
+    instance = new SimpleClient();
   }
 
   @Test
-  public void testGetAsync() throws InterruptedException, ExecutionException, IOException, EncodingException {
-    // setup face
-    MockTransport transport = new MockTransport();
-    Face face = new Face(transport, null);
+  public void GetAsync() throws Exception {
+    Name name = new Name("/test/simple/client/async");
+    Interest interest = new Interest(name, 2000);
 
-    // setup return data
-    Data response = new Data(new Name("/test/async"));
-    response.setContent(new Blob("..."));
-    transport.respondWith(response);
+    TestHelper.addDataPublisher(face, -1);
 
-    // retrieve data
-    logger.info("Client expressing interest asynchronously: /test/async");
-    SimpleClient client = new SimpleClient();
-    Future<Data> futureData = client.getAsync(face, new Name("/test/async"));
-    assertTrue(!futureData.isDone());
+    final CompletableFuture<Data> future = instance.getAsync(face, interest);
 
-    // process events to retrieve data
-    face.processEvents();
-    assertTrue(futureData.isDone());
-    assertEquals(new Blob("...").toString(), futureData.get().getContent().toString());
+    TestHelper.run(face, 20, new TestHelper.Tester() {
+      @Override
+      public boolean test() {
+        return !future.isDone();
+      }
+    });
+
+    assertFalse(future.isCompletedExceptionally());
+    assertEquals(1, face.sentInterests.size());
+    assertEquals("...", future.get().getContent().toString());
   }
 
   @Test
-  public void testTimeout() throws Exception {
-    // setup face
-    MockTransport transport = new MockTransport();
-    Face face = new Face(transport, null);
+  public void GetAsyncNoData() throws Exception {
+    Name name = new Name("/test/simple/client/async/timeout");
+    Interest interest = new Interest(name, 100);
 
-    // retrieve non-existent data, should timeout
-    logger.info("Client expressing interest asynchronously: /test/timeout");
-    Interest interest = new Interest(new Name("/test/timeout"), 1);
-    CompletableFuture<Data> futureData = SimpleClient.getDefault().getAsync(face, interest);
+    final CompletableFuture<Data> future = instance.getAsync(face, interest);
 
-    // wait for NDN timeout
-    Thread.sleep(2);
-    face.processEvents();
+    TestHelper.run(face, 20, new TestHelper.Tester() {
+      @Override
+      public boolean test() {
+        return !future.isDone();
+      }
+    });
 
-    // verify that the client is completing the future with a TimeoutException
-    assertTrue(futureData.isDone());
-    assertTrue(futureData.isCompletedExceptionally());
-    try {
-      futureData.get();
-    } catch (ExecutionException e) {
-      assertTrue(e.getCause() instanceof TimeoutException);
-    }
+    assertTrue(future.isCompletedExceptionally());
   }
 
-  @Test(expected = Exception.class)
-  public void testAsyncFailureToRetrieve() throws Exception {
-    Face face = new MockFace();
+  @Test
+  public void GetSync() throws Exception {
+    final Name name = new Name("/test/simple/client/sync");
 
-    logger.info("Client expressing interest asynchronously: /test/no-data");
-    Interest interest = new Interest(new Name("/test/no-data"), 10);
-    Future future = SimpleClient.getDefault().getAsync(face, interest);
+    TestHelper.addDataPublisher(face, -1);
 
-    face.processEvents();
-    future.get(15, TimeUnit.MILLISECONDS);
+    Data data = instance.getSync(face, name);
+    assertEquals("...", data.getContent().toString());
+    assertEquals(1, face.sentInterests.size());
   }
 
-  @Test(expected = IOException.class)
-  public void testSyncFailureToRetrieve() throws IOException {
-    logger.info("Client expressing interest synchronously: /test/no-data");
-    Interest interest = new Interest(new Name("/test/no-data"), 10);
-    SimpleClient.getDefault().getSync(new Face(), interest);
-  }
+//  @Test(expected = Exception.class)
+//  public void testAsyncFailureToRetrieve() throws Exception {
+//    logger.info("Client expressing interest asynchronously: /test/no-data");
+//    Interest interest = new Interest(new Name("/test/no-data"), 10);
+//    Future future = SimpleClient.getDefault().getAsync(face, interest);
+//
+//    face.processEvents();
+//    future.get(15, TimeUnit.MILLISECONDS);
+//  }
+//
+//  @Test(expected = IOException.class)
+//  public void testSyncFailureToRetrieve() throws IOException {
+//    logger.info("Client expressing interest synchronously: /test/no-data");
+//    Interest interest = new Interest(new Name("/test/no-data"), 10);
+//    SimpleClient.getDefault().getSync(new Face(), interest);
+//  }
 }

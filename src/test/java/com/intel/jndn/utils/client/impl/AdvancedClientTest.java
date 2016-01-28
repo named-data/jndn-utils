@@ -13,21 +13,19 @@
  */
 package com.intel.jndn.utils.client.impl;
 
+import java.sql.Time;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+
 import com.intel.jndn.mock.MockFace;
 import com.intel.jndn.utils.TestHelper;
-import com.intel.jndn.utils.client.SegmentationType;
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import net.named_data.jndn.Data;
-import net.named_data.jndn.Face;
-import net.named_data.jndn.Interest;
-import net.named_data.jndn.InterestFilter;
-import net.named_data.jndn.Name;
-import net.named_data.jndn.OnInterestCallback;
-import net.named_data.jndn.util.Blob;
+import net.named_data.jndn.*;
+import net.named_data.jndn.encoding.EncodingException;
+import net.named_data.jndn.security.SecurityException;
 import static org.junit.Assert.*;
+
+import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -36,130 +34,157 @@ import org.junit.Test;
  */
 public class AdvancedClientTest {
 
-  MockFace face = new MockFace();
-  AdvancedClient instance = new AdvancedClient();
+  private static final Logger logger = Logger.getLogger(AdvancedClientTest.class.getName());
+
+  MockFace face;
+  AdvancedClient instance;
+  DefaultRetryClient retryClient;
+
+  @Before
+  public void init() throws SecurityException {
+    face = new MockFace();
+    retryClient = new DefaultRetryClient(5);
+    assertEquals(0, retryClient.totalRetries());
+    instance = new AdvancedClient(500, 2000, new DefaultSegmentedClient(), retryClient, new DefaultStreamingClient());
+  }
 
   @Test
-  public void testRetries() throws Exception {
+  public void GetAsyncBasic() throws Exception {
     Name name = new Name("/test/advanced/client");
-    Interest interest = new Interest(name, 1);
+    Interest interest = new Interest(name, 2000);
 
-    CompletableFuture<Data> future = instance.getAsync(face, interest);
+    TestHelper.addDataPublisher(face, -1);
 
-    while (!future.isDone()) {
-      face.processEvents();
-    }
+    final CompletableFuture<Data> future = instance.getAsync(face, interest);
+
+    TestHelper.run(face, 20, new TestHelper.Tester() {
+      @Override
+      public boolean test() {
+        return !future.isDone();
+      }
+    });
+
+    assertFalse(future.isCompletedExceptionally());
+    assertEquals(0, retryClient.totalRetries());
+    assertEquals(1, face.sentInterests.size());
+    assertEquals("...", future.get().getContent().toString());
+  }
+
+  @Test
+  public void GetAsyncSegmented() throws Exception {
+    Name name = new Name("/test/advanced/client").appendSegment(0);
+    Interest interest = new Interest(name, 2000);
+
+    TestHelper.addDataPublisher(face, 9);
+
+    final CompletableFuture<Data> future = instance.getAsync(face, interest);
+
+    TestHelper.run(face, 20, new TestHelper.Tester() {
+      @Override
+      public boolean test() {
+        return !future.isDone();
+      }
+    });
+
+    assertFalse(future.isCompletedExceptionally());
+    assertEquals(0, retryClient.totalRetries());
+    assertEquals(10, face.sentInterests.size());
+    assertEquals("..............................", future.get().getContent().toString());
+  }
+
+  @Test
+  public void GetAsyncBasicNoData() throws Exception {
+    Name name = new Name("/test/advanced/client");
+    Interest interest = new Interest(name, 100);
+
+    final CompletableFuture<Data> future = instance.getAsync(face, interest);
+
+    TestHelper.run(face, 20, new TestHelper.Tester() {
+      @Override
+      public boolean test() {
+        return !future.isDone();
+      }
+    });
 
     assertTrue(future.isCompletedExceptionally());
+    assertEquals(5, retryClient.totalRetries());
+    assertNotEquals(face.sentInterests.get(0).getNonce(), face.sentInterests.get(1).getNonce());
+    assertEquals(6, face.sentInterests.size()); // original interest and 5 retries
   }
 
   @Test
-  public void testGetSync() throws Exception {
-    Name name = new Name("/segmented/data");
+  public void GetSyncBasic() throws Exception {
+    final Name name = new Name("/segmented/data");
 
-    face.registerPrefix(name, new OnInterestCallback() {
-      private int count = 0;
-      private int max = 9;
-
-      @Override
-      public void onInterest(Name prefix, Interest interest, Face face, long interestFilterId, InterestFilter filter) {
-        Data data = new Data(interest.getName());
-        if (!SegmentationHelper.isSegmented(data.getName(), SegmentationType.SEGMENT.value())) {
-          data.getName().appendSegment(0);
-        }
-        data.getMetaInfo().setFinalBlockId(Name.Component.fromNumberWithMarker(max, 0x00));
-        data.setContent(new Blob("."));
-        try {
-          face.putData(data);
-        } catch (IOException e) {
-          fail(e.getMessage());
-        }
-      }
-    }, null);
-
-    Data data = instance.getSync(face, new Name(name).appendSegment(0));
-    assertEquals(10, data.getContent().size());
-  }
-  
-    /**
-   * Verify that Data returned with a different Name than the Interest is still
-   * segmented correctly.
-   *
-   * @throws Exception
-   */
-  @Test
-  public void testWhenDataNameIsLongerThanInterestName() throws Exception {
-    final List<Data> segments = TestHelper.buildSegments(new Name("/a/b/c/d"), 0, 10);
-    for (Data segment : segments) {
-      face.addResponse(segment.getName(), segment);
-    }
-
-    Name name = new Name("/a/b");
-    face.addResponse(name, segments.get(0));
+    TestHelper.addDataPublisher(face, -1);
 
     Data data = instance.getSync(face, name);
+    assertEquals("...", data.getContent().toString());
+    assertEquals(1, face.sentInterests.size());
+  }
+
+  @Test
+  public void GetSyncSegmented() throws Exception {
+    final Name name = new Name("/segmented/data").appendSegment(0);
+
+    TestHelper.addDataPublisher(face, 9);
+
+    Data data = instance.getSync(face, name);
+    assertEquals(10, face.sentInterests.size());
+    assertEquals("..............................", data.getContent().toString());
+  }
+
+  /**
+   * Verify that Data returned with a different Name than the Interest is still
+   * segmented correctly.
+   */
+  @Test
+  public void DataNameIsLongerThanInterestName() throws Exception {
+    for (int i = 0; i < 10; i++) {
+      face.receive(TestHelper.buildData(new Name("/a/b/c/d").appendSegment(i), "...", 9));
+    }
+
+    Data data = instance.getSync(face, new Name("/a/b"));
     assertNotNull(data);
     assertEquals("/a/b/c/d", data.getName().toUri());
+    assertEquals(10, face.sentInterests.size());
+    assertEquals("..............................", data.getContent().toString());
   }
 
-  /**
-   * Verify that Data packets with no content do not cause errors; identifies
-   * bug.
-   *
-   * @throws Exception
-   */
-  @Test
-  public void testNoContent() throws Exception {
-    Name name = new Name("/test/no-content").appendSegment(0);
-    Data data = TestHelper.buildData(name, "", 0);
-    face.addResponse(name, data);
+  // @TODO This needs to be fixed in AdvancedClient
+   @Test(expected = AssertionError.class)
+   public void UnorderedSegments() throws Exception {
+     for (int i = 9; i >= 0; i--) {
+       face.receive(TestHelper.buildData(new Name("/a/b/c/d").appendSegment(i), "...", 9));
+     }
 
-    Future<Data> result = instance.getAsync(face, name);
-    face.processEvents();
-    assertEquals("/test/no-content", result.get().getName().toUri());
-    assertEquals("", result.get().getContent().toString());
-  }
+     final CompletableFuture<Data> future = instance.getAsync(face, new Name("/a/b"));
 
-  /**
-   * Verify that segmented content is the correct length when retrieved by the
-   * client.
-   *
-   * @throws Exception
-   */
-  @Test
-  public void testContentLength() throws Exception {
-    Data data1 = new Data(new Name("/test/content-length").appendSegment(0));
-    data1.setContent(new Blob("0123456789"));
-    data1.getMetaInfo().setFinalBlockId(Name.Component.fromNumberWithMarker(1, 0x00));
-    face.addResponse(data1.getName(), data1);
+     TestHelper.run(face, 20, new TestHelper.Tester() {
+       @Override
+       public boolean test() {
+         return !future.isDone();
+       }
+     });
 
-    Data data2 = new Data(new Name("/test/content-length").appendSegment(1));
-    data2.setContent(new Blob("0123456789"));
-    data1.getMetaInfo().setFinalBlockId(Name.Component.fromNumberWithMarker(1, 0x00));
-    face.addResponse(data2.getName(), data2);
+     assertTrue(future.isCompletedExceptionally());
+     assertNotNull(future.get());
+     assertEquals("/a/b/c/d", future.get().getName().toUri());
+     assertEquals(10, face.sentInterests.size());
+     assertEquals("..............................", future.get().getContent().toString());
+   }
 
-    Future<Data> result = instance.getAsync(face, new Name("/test/content-length").appendSegment(0));
-    face.processEvents();
-    face.processEvents();
-    assertEquals(20, result.get().getContent().size());
-  }
+   /**
+    * Verify that Data packets with no content do not cause errors
+    */
+   @Test
+   public void GetSyncDataNoContent() throws Exception {
+     Name name = new Name("/test/no-content").appendSegment(0);
+     face.receive(TestHelper.buildData(name, "", 0));
 
-  /**
-   * If a Data packet does not have a FinalBlockId, the AdvancedClient should
- just return the packet.
-   *
-   * @throws Exception
-   */
-  @Test
-  public void testNoFinalBlockId() throws Exception {
-    Name name = new Name("/test/no-final-block-id");
-    Data data = new Data(name);
-    data.setContent(new Blob("1"));
-    face.addResponse(name, data);
+     Data data = instance.getSync(face, name);
 
-    Future<Data> result = instance.getAsync(face, name);
-    face.processEvents();
-    assertEquals("/test/no-final-block-id", result.get().getName().toUri());
-    assertEquals("1", result.get().getContent().toString());
-  }
+     assertEquals("/test/no-content", data.getName().toUri());
+     assertEquals("", data.getContent().toString());
+   }
 }

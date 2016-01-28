@@ -83,12 +83,12 @@ public class SimpleClient implements Client {
     final CompletableFuture futureData = new CompletableFuture<>();
 
     // send interest
-    logger.log(Level.FINER, "Sending interest for: " + interest.getName().toUri());
+    logger.info("Sending interest for: " + interest.getName().toUri());
     try {
       face.expressInterest(interest, new OnData() {
         @Override
         public void onData(Interest interest, Data data) {
-          logger.log(Level.FINER, "Retrieved data: " + data.getName().toUri());
+          logger.info("Retrieved data: " + data.getName().toUri());
           futureData.complete(data);
         }
       }, new OnTimeout() {
@@ -99,7 +99,7 @@ public class SimpleClient implements Client {
         }
       });
     } catch (IOException e) {
-      logger.log(Level.FINE, "IO failure while sending interest: ", e);
+      logger.info("IO failure while sending interest: " + e.toString());
       futureData.completeExceptionally(e);
     }
 
@@ -159,7 +159,6 @@ public class SimpleClient implements Client {
    * @return a default interest for the given name
    */
   public Interest getDefaultInterest(Name name) {
-    Interest interest = new Interest(name, interestLifetime);
-    return interest;
+    return new Interest(name, interestLifetime);
   }
 }

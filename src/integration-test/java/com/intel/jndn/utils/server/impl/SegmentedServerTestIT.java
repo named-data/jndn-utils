@@ -13,7 +13,7 @@
  */
 package com.intel.jndn.utils.server.impl;
 
-import com.intel.jndn.mock.MockKeyChain;
+import com.intel.jndn.mock.DummyKeyChain;
 import com.intel.jndn.utils.TestHelper;
 import com.intel.jndn.utils.client.impl.AdvancedClient;
 import java.io.IOException;
@@ -48,7 +48,7 @@ public class SegmentedServerTestIT {
     this.ip = System.getProperty("nfd.ip");
     this.face = new Face(ip);
     this.instance = new SegmentedServer(face, PREFIX);
-    KeyChain mockKeyChain = MockKeyChain.configure(new Name("/test/server"));
+    KeyChain mockKeyChain = DummyKeyChain.configure(new Name("/test/server"));
     face.setCommandSigningInfo(mockKeyChain, mockKeyChain.getDefaultCertificateName());
   }
 

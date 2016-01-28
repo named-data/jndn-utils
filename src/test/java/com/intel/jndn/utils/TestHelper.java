@@ -13,7 +13,6 @@
  */
 package com.intel.jndn.utils;
 
-import com.intel.jndn.mock.MockKeyChain;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +23,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import com.intel.jndn.mock.MockFace;
+import com.intel.jndn.mock.MockKeyChain;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
+import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.encoding.EncodingException;
 import net.named_data.jndn.security.KeyChain;
@@ -39,6 +42,42 @@ import net.named_data.jndn.util.Blob;
  * @author Andrew Brown <andrew.brown@intel.com>
  */
 public class TestHelper {
+
+  public interface Tester {
+    boolean test();
+  }
+
+  public static void run(Face face, int limit, Tester t) throws IOException, EncodingException, InterruptedException {
+    while (t.test() && limit > 0) {
+      face.processEvents();
+      Thread.sleep(500);
+      limit--;
+    }
+  }
+
+  public static void run(Face face, int limit) throws IOException, EncodingException, InterruptedException {
+    run(face, limit, new Tester() {
+      @Override
+      public boolean test() {
+        return true;
+      }
+    });
+  }
+
+  public static void addDataPublisher(final MockFace face, final int finalBlockId) {
+    face.onSendInterest.add(new MockFace.SignalOnSendInterest() {
+      @Override
+      public void emit(Interest interest) throws EncodingException, SecurityException {
+        if (finalBlockId < 0) {
+          face.receive(TestHelper.buildData(interest.getName(), "..."));
+        }
+        else {
+          face.receive(TestHelper.buildData(interest.getName(), "...", finalBlockId));
+        }
+      }
+    });
+  }
+
 
   public static Data retrieve(CompletableFuture<Data> future) {
     try {
@@ -125,9 +164,5 @@ public class TestHelper {
         Logger.getLogger(TestHelper.class.getName()).log(Level.SEVERE, null, ex);
       }
     }
-  }
-  
-  public static class TestCounter{
-    public int count = 0;
   }
 }

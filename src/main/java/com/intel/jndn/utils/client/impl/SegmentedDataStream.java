@@ -172,6 +172,7 @@ public class SegmentedDataStream implements DataStream {
 
   @Override
   public synchronized void onComplete() {
+    logger.info("OnComplete");
     for (OnComplete cb : observersOnComplete) {
       cb.onComplete();
     }
@@ -179,6 +180,7 @@ public class SegmentedDataStream implements DataStream {
 
   @Override
   public synchronized void onTimeout(Interest interest) {
+    logger.info("OnTimeout for " + interest.toUri());
     for (OnTimeout cb : observersOnTimeout) {
       cb.onTimeout(interest);
     }
@@ -186,6 +188,7 @@ public class SegmentedDataStream implements DataStream {
 
   @Override
   public synchronized void onException(Exception exception) {
+    logger.info("Exception: " + exception.toString());
     this.exception = exception;
 
     for (OnException cb : observersOnException) {
