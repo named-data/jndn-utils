@@ -21,7 +21,7 @@ import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.InterestFilter;
 import net.named_data.jndn.Name;
-import net.named_data.jndn.OnInterest;
+import net.named_data.jndn.OnInterestCallback;
 import net.named_data.jndn.util.Blob;
 
 import java.io.IOException;
@@ -29,7 +29,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Implementation of a {@link DynamicServer} that wraps the {@link OnInterest}
+ * Implementation of a {@link DynamicServer} that wraps the {@link OnInterestCallback}
  * callback with some encoding and pipeline support.
  *
  * @author Andrew Brown, andrew.brown@intel.com

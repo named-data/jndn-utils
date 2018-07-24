@@ -10,7 +10,7 @@ apply plugin: 'maven'
 apply plugin: 'signing'
 
 group = 'net.named-data.jndn-extra'
-version = '1.0.2-SNAPSHOT'
+version = '1.2.0'
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
@@ -21,28 +21,29 @@ repositories {
   mavenLocal()
   mavenCentral()
   maven {
-    url "https://oss.sonatype.org/content/repositories/snapshots/"
+    url "https://oss.sonatype.org/content/repositories/releases/"
   }
 }
 
 sourceSets {
   integrationTest {
     java {
+      srcDir 'src/integration-test/java'
       compileClasspath += main.output + test.output
       runtimeClasspath += main.output + test.output
-      srcDir file('src/integration-test/java')
     }
   }
 }
 
 configurations {
-    integrationTestCompile.extendsFrom testCompile
-    integrationTestRuntime.extendsFrom testRuntime
+  integrationTestCompile.extendsFrom testCompile
+  integrationTestRuntime.extendsFrom testRuntime
 }
 
 dependencies {
   compile 'com.google.guava:guava:25.1-jre'
   compile 'net.named-data:jndn:0.17'
+  compile 'org.mockito:mockito-core:2.20.0'
 
   testCompile 'junit:junit:4.12'
   testCompile 'net.named-data.jndn-extra:jndn-mock:1.1.1'
@@ -60,8 +61,12 @@ task sourcesJar(type: Jar) {
 
 task integrationTest(type: Test) {
   description 'Compile and run integration tests'
-  testClassesDir = sourceSets.integrationTest.output.classesDir
+  group = 'verification'
+
+  testClassesDirs = sourceSets.integrationTest.output.classesDirs
   classpath = sourceSets.integrationTest.runtimeClasspath
+
+  mustRunAfter test
 }
 
 tasks.withType(Test) {
