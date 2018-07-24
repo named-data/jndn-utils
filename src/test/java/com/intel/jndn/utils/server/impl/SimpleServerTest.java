@@ -13,28 +13,40 @@
  */
 package com.intel.jndn.utils.server.impl;
 
-import com.intel.jndn.mock.MockFace;
+import com.intel.jndn.mock.MeasurableFace;
+import com.intel.jndn.mock.MockForwarder;
 import com.intel.jndn.utils.server.RespondWithBlob;
 import com.intel.jndn.utils.server.RespondWithData;
-import java.io.IOException;
 import net.named_data.jndn.Data;
+import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
-import net.named_data.jndn.OnData;
 import net.named_data.jndn.encoding.EncodingException;
 import net.named_data.jndn.util.Blob;
-import static org.junit.Assert.*;
+import org.junit.Before;
 import org.junit.Test;
+
+import java.io.IOException;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 /**
  * Test {@link SimpleServer}
  *
- * @author Andrew Brown <andrew.brown@intel.com>
+ * @author Andrew Brown, andrew.brown@intel.com
  */
 public class SimpleServerTest {
 
-  MockFace face = new MockFace();
-  SimpleServer instance = new SimpleServer(face, new Name("/test/prefix"));
+  private Face face;
+  private SimpleServer instance;
+
+  @Before
+  public void before() throws Exception {
+    MockForwarder forwarder = new MockForwarder();
+    face = forwarder.connect();
+    instance = new SimpleServer(face, new Name("/test/prefix"));
+  }
 
   @Test
   public void testGetPrefix() {
@@ -81,16 +93,11 @@ public class SimpleServerTest {
 
   private void sendAndCheckOneInterest(Name interestName) throws EncodingException, IOException {
     Interest interest = new Interest(interestName);
-    face.getTransport().clear();
-    face.expressInterest(interest, new OnData() {
-      @Override
-      public void onData(Interest interest, Data data) {
-        assertEquals("/test/prefix/response", data.getName().toUri());
-      }
-    });
 
+    face.expressInterest(interest, (interest1, data) -> assertEquals(interestName, data.getName()));
     face.processEvents();
-    assertEquals(1, face.getTransport().getSentDataPackets().size());
-    assertEquals("...", face.getTransport().getSentDataPackets().get(0).getContent().toString());
+
+    assertEquals(1, ((MeasurableFace) face).sentDatas().size());
+    assertEquals("...", ((MeasurableFace) face).sentDatas().iterator().next().getContent().toString());
   }
 }

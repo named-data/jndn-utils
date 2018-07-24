@@ -1,6 +1,6 @@
 /*
  * jndn-utils
- * Copyright (c) 2015, Intel Corporation.
+ * Copyright (c) 2016, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU Lesser General Public License,
@@ -14,12 +14,10 @@
 package com.intel.jndn.utils.client.impl;
 
 import com.intel.jndn.mock.MockFace;
+import com.intel.jndn.mock.MockForwarder;
 import com.intel.jndn.utils.TestHelper;
 import com.intel.jndn.utils.client.SegmentationType;
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
+import com.intel.jndn.utils.impl.SegmentationHelper;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
@@ -27,17 +25,31 @@ import net.named_data.jndn.InterestFilter;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.OnInterestCallback;
 import net.named_data.jndn.util.Blob;
-import static org.junit.Assert.*;
+import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+
+import static org.junit.Assert.*;
+
 /**
- *
- * @author Andrew Brown <andrew.brown@intel.com>
+ * @author Andrew Brown, andrew.brown@intel.com
  */
 public class AdvancedClientTest {
 
-  MockFace face = new MockFace();
-  AdvancedClient instance = new AdvancedClient();
+  private MockFace face;
+  private AdvancedClient instance;
+  private MockForwarder forwarder;
+
+  @Before
+  public void before() throws Exception {
+    forwarder = new MockForwarder();
+    face = new MockFace();
+    instance = new AdvancedClient();
+  }
 
   @Test
   public void testRetries() throws Exception {
@@ -57,9 +69,9 @@ public class AdvancedClientTest {
   public void testGetSync() throws Exception {
     Name name = new Name("/segmented/data");
 
+    Face face = forwarder.connect();
     face.registerPrefix(name, new OnInterestCallback() {
-      private int count = 0;
-      private int max = 9;
+      private final int max = 9;
 
       @Override
       public void onInterest(Name prefix, Interest interest, Face face, long interestFilterId, InterestFilter filter) {
@@ -80,22 +92,22 @@ public class AdvancedClientTest {
     Data data = instance.getSync(face, new Name(name).appendSegment(0));
     assertEquals(10, data.getContent().size());
   }
-  
-    /**
+
+  /**
    * Verify that Data returned with a different Name than the Interest is still
    * segmented correctly.
    *
-   * @throws Exception
+   * @throws Exception if client fails
    */
   @Test
   public void testWhenDataNameIsLongerThanInterestName() throws Exception {
     final List<Data> segments = TestHelper.buildSegments(new Name("/a/b/c/d"), 0, 10);
     for (Data segment : segments) {
-      face.addResponse(segment.getName(), segment);
+      face.receive(segment);
     }
 
     Name name = new Name("/a/b");
-    face.addResponse(name, segments.get(0));
+    face.receive(segments.get(0));
 
     Data data = instance.getSync(face, name);
     assertNotNull(data);
@@ -106,13 +118,13 @@ public class AdvancedClientTest {
    * Verify that Data packets with no content do not cause errors; identifies
    * bug.
    *
-   * @throws Exception
+   * @throws Exception if client fails
    */
   @Test
   public void testNoContent() throws Exception {
     Name name = new Name("/test/no-content").appendSegment(0);
     Data data = TestHelper.buildData(name, "", 0);
-    face.addResponse(name, data);
+    face.receive(data);
 
     Future<Data> result = instance.getAsync(face, name);
     face.processEvents();
@@ -124,19 +136,19 @@ public class AdvancedClientTest {
    * Verify that segmented content is the correct length when retrieved by the
    * client.
    *
-   * @throws Exception
+   * @throws Exception if client fails
    */
   @Test
   public void testContentLength() throws Exception {
     Data data1 = new Data(new Name("/test/content-length").appendSegment(0));
     data1.setContent(new Blob("0123456789"));
     data1.getMetaInfo().setFinalBlockId(Name.Component.fromNumberWithMarker(1, 0x00));
-    face.addResponse(data1.getName(), data1);
+    face.receive(data1);
 
     Data data2 = new Data(new Name("/test/content-length").appendSegment(1));
     data2.setContent(new Blob("0123456789"));
     data1.getMetaInfo().setFinalBlockId(Name.Component.fromNumberWithMarker(1, 0x00));
-    face.addResponse(data2.getName(), data2);
+    face.receive(data2);
 
     Future<Data> result = instance.getAsync(face, new Name("/test/content-length").appendSegment(0));
     face.processEvents();
@@ -146,16 +158,16 @@ public class AdvancedClientTest {
 
   /**
    * If a Data packet does not have a FinalBlockId, the AdvancedClient should
- just return the packet.
+   * just return the packet.
    *
-   * @throws Exception
+   * @throws Exception if client fails
    */
   @Test
   public void testNoFinalBlockId() throws Exception {
     Name name = new Name("/test/no-final-block-id");
     Data data = new Data(name);
     data.setContent(new Blob("1"));
-    face.addResponse(name, data);
+    face.receive(data);
 
     Future<Data> result = instance.getAsync(face, name);
     face.processEvents();

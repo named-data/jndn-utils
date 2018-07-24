@@ -1,6 +1,6 @@
 /*
  * jndn-utils
- * Copyright (c) 2015, Intel Corporation.
+ * Copyright (c) 2016, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU Lesser General Public License,
@@ -14,15 +14,18 @@
 package com.intel.jndn.utils.processing.impl;
 
 import com.intel.jndn.utils.ProcessingStage;
-import java.io.ByteArrayOutputStream;
-import java.util.zip.GZIPOutputStream;
+import com.intel.jndn.utils.ProcessingStageException;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.util.Blob;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * Sample stage for compressing {@link Data} content using GZIP
  *
- * @author Andrew Brown <andrew.brown@intel.com>
+ * @author Andrew Brown, andrew.brown@intel.com
  */
 public class CompressionStage implements ProcessingStage<Data, Data> {
 
@@ -32,14 +35,17 @@ public class CompressionStage implements ProcessingStage<Data, Data> {
    *
    * @param context the {@link Data} packet
    * @return the same packet but with GZIP-compressed content
-   * @throws Exception if compression fails
+   * @throws ProcessingStageException if compression fails
    */
   @Override
-  public Data process(Data context) throws Exception {
+  public Data process(Data context) throws ProcessingStageException {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
     try (GZIPOutputStream stream = new GZIPOutputStream(buffer)) {
       stream.write(context.getContent().getImmutableArray(), 0, context.getContent().size());
       stream.close();
+    } catch (IOException e) {
+      throw new ProcessingStageException(e);
     }
 
     context.setContent(new Blob(buffer.toByteArray()));

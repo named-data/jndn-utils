@@ -33,6 +33,10 @@ hs_err_pid*
 # Netbeans specific project files
 nbactions.xml
 
+# IntelliJ specific project files
+.idea
+*.imlnbactions.xml
+
 # generated files
 bin/
 gen/
