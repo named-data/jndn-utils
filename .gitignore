@@ -59,7 +59,6 @@ Thumbs.db
 # the project can be imported from settings.gradle
 .idea
 *.iml
-gradle
 
 # Old-style IDEA project files
 *.ipr
