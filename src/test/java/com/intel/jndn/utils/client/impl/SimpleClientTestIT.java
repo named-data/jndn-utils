@@ -16,14 +16,11 @@ package com.intel.jndn.utils.client.impl;
 import com.intel.jndn.utils.client.impl.SimpleClient;
 import com.intel.jndn.utils.TestHelper;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import com.intel.jndn.utils.processing.impl.CompressionStage;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
@@ -109,16 +106,12 @@ public class SimpleClientTestIT {
     Thread.sleep(500);
 
     // request all packets
-    ArrayList<CompletableFuture<Data>> futures = new ArrayList<>();
-    for (int i = 0; i < numInterests; i++) {
-      futures.add(instance.getAsync(consumerFace, PREFIX_RETRIEVE_MULTIPLE));
-    }
+    Stream<CompletableFuture<Data>> futures = IntStream.range(0, numInterests)
+            .boxed().map((i) -> instance.getAsync(consumerFace, PREFIX_RETRIEVE_MULTIPLE));
 
     // check all returned packets
-    for (CompletableFuture<Data> f : futures) {
-      Data d = TestHelper.retrieve(f);
-      assertEquals(servedData.getContent().toString(), d.getContent().toString());
-    }
+    futures.map((f) -> TestHelper.retrieve(f))
+            .forEach((d) -> assertEquals(servedData.getContent().toString(), d.getContent().toString()));
   }
 
   private class DataServer implements OnInterestCallback {

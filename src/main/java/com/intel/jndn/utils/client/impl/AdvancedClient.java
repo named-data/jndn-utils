@@ -94,10 +94,10 @@ public class AdvancedClient extends SimpleClient implements SegmentedClient, Str
    */
   @Override
   public CompletableFuture<Data> getAsync(Face face, Interest interest) {
-    final CompletableFuture<Data> future = new CompletableFuture<>();
+    CompletableFuture<Data> future = new CompletableFuture<>();
 
     try {
-      final DataStream stream = getSegmentsAsync(face, interest);
+      DataStream stream = getSegmentsAsync(face, interest);
 
       stream.observe(new OnException() {
         public void onException(Exception exception) {

@@ -70,9 +70,9 @@ public class DefaultStreamingClient implements StreamingClient {
    * @return
    * @throws IOException
    */
-  public InputStream getStreamAsync(final DataStream onDataStream, OnException onException) throws IOException {
+  public InputStream getStreamAsync(DataStream onDataStream, OnException onException) throws IOException {
     PipedInputStream in = new PipedInputStream();
-    final PipedOutputStream out = new PipedOutputStream(in);
+    PipedOutputStream out = new PipedOutputStream(in);
 
     onDataStream.observe(onException);
 

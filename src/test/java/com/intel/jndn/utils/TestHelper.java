@@ -24,6 +24,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
 import net.named_data.jndn.Name;
@@ -49,19 +51,15 @@ public class TestHelper {
   }
 
   public static List<CompletableFuture<Data>> buildFutureSegments(Name name, int from, int to) {
-    List<CompletableFuture<Data>> list = new ArrayList<>();
-    for (Data d : buildSegments(name, from, to)) {
-      list.add(CompletableFuture.completedFuture(d));
-    }
-    return list;
+    return buildSegments(name, from, to).stream()
+            .map((d) -> CompletableFuture.completedFuture(d))
+            .collect(Collectors.toList());
   }
 
   public static List<Data> buildSegments(Name name, int from, int to) {
-    List<Data> list = new ArrayList<>();
-    for (Integer i = from; i < to; i++) {
-      list.add(buildData(new Name(name).appendSegment(i), i.toString(), to - 1));
-    }
-    return list;
+    return IntStream.range(from, to).boxed()
+            .map((i) -> buildData(new Name(name).appendSegment(i), i.toString(), to - 1))
+            .collect(Collectors.toList());
   }
 
   public static Data buildData(Name name, String content) {

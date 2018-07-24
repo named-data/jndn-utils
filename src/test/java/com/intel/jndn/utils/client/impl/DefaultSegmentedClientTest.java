@@ -22,8 +22,6 @@ import net.named_data.jndn.Data;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
 import static org.junit.Assert.assertEquals;
-
-import net.named_data.jndn.OnData;
 import org.junit.Test;
 
 /**
@@ -42,12 +40,9 @@ public class DefaultSegmentedClientTest {
     Interest interest = new Interest(name);
     DataStream stream = instance.getSegmentsAsync(face, interest);
 
-    final TestCounter counter = new TestCounter();
-    stream.observe(new OnData() {
-      @Override
-      public void onData(Interest interest, Data data) {
-        counter.count++;
-      }
+    TestCounter counter = new TestCounter();
+    stream.observe((i, d) -> {
+      counter.count++;
     });
 
     for (Data segment : TestHelper.buildSegments(name, 0, 5)) {
@@ -82,12 +77,9 @@ public class DefaultSegmentedClientTest {
     Interest interest = new Interest(name);
     DataStream stream = instance.getSegmentsAsync(face, interest);
 
-    final TestCounter counter = new TestCounter();
-    stream.observe(new OnData() {
-      @Override
-      public void onData(Interest interest, Data data) {
-        counter.count++;
-      }
+    TestCounter counter = new TestCounter();
+    stream.observe((i, d) -> {
+      counter.count++;
     });
 
     for (Data segment : TestHelper.buildSegments(name, 0, 5)) {
