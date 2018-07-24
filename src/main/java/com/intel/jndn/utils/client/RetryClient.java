@@ -40,5 +40,5 @@ public interface RetryClient {
    * @param onTimeout the application's failure callback
    * @throws IOException when the client cannot perform the necessary network IO
    */
-  void retry(Face face, Interest interest, OnData onData, OnTimeout onTimeout) throws IOException;
+  public void retry(Face face, Interest interest, OnData onData, OnTimeout onTimeout) throws IOException;
 }

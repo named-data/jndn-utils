@@ -14,8 +14,8 @@
 package com.intel.jndn.utils.client.impl;
 
 import com.intel.jndn.mock.MockFace;
-
-import com.intel.jndn.utils.TestHelper;
+import com.intel.jndn.utils.TestHelper.TestCounter;
+import java.io.IOException;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
@@ -23,9 +23,6 @@ import net.named_data.jndn.OnData;
 import net.named_data.jndn.OnTimeout;
 import net.named_data.jndn.encoding.EncodingException;
 import static org.junit.Assert.*;
-
-import net.named_data.jndn.security.SecurityException;
-import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -34,66 +31,44 @@ import org.junit.Test;
  * @author Andrew Brown <andrew.brown@intel.com>
  */
 public class DefaultRetryClientTest {
-  DefaultRetryClient client;
-  MockFace face;
-  int nData;
-  int nTimeouts;
 
-  @Before
-  public void setUp() throws Exception {
-    face = new MockFace();
-    client = new DefaultRetryClient(3);
-    nData = 0;
-    nTimeouts = 0;
+  DefaultRetryClient client = new DefaultRetryClient(3);
+  MockFace face = new MockFace();
+  Name name = new Name("/test/retry/client");
+  Interest interest = new Interest(name, 0.0);
+  TestCounter counter = new TestCounter();
 
-    client.retry(face, new Interest(new Name("/test/retry/client"), 10), new OnData() {
+  @Test
+  public void testRetry() throws Exception {
+
+    client.retry(face, interest, new OnData() {
       @Override
       public void onData(Interest interest, Data data) {
-        nData++;
+        counter.count++;
       }
     }, new OnTimeout() {
       @Override
       public void onTimeout(Interest interest) {
-        nTimeouts++;
+        fail("Should not timeout.");
       }
     });
-  }
-
-  @Test
-  public void MaxRetries() throws Exception {
-    TestHelper.run(face, 10);
-    assertEquals(3, client.totalRetries());
-    assertEquals(3, face.sentInterests.size());
-    assertEquals(0, nData);
-    assertEquals(1, nTimeouts);
-  }
-
-  @Test
-  public void RetryAndSuccess() throws Exception {
-    TestHelper.run(face, 1);
     assertEquals(1, client.totalRetries());
-    assertEquals(1, face.sentInterests.size());
-    assertEquals(0, nData);
-    assertEquals(0, nTimeouts);
 
-    TestHelper.run(face, 1);
-    assertEquals(2, client.totalRetries());
-    assertEquals(2, face.sentInterests.size());
-    assertEquals(0, nData);
-    assertEquals(0, nTimeouts);
+    timeoutAndVerifyRetry(2);
+    timeoutAndVerifyRetry(3);
+    respondToRetryAttempt();
+  }
 
-    face.onSendInterest.add(new MockFace.SignalOnSendInterest() {
-      @Override
-      public void emit(Interest interest) throws EncodingException, SecurityException {
-        face.receive(new Data(new Name("/test/retry/client")));
-        face.onSendInterest.clear();
-      }
-    });
+  private void timeoutAndVerifyRetry(int retryCount) throws Exception {
+    Thread.sleep(1);
+    face.processEvents();
+    assertEquals(retryCount, client.totalRetries());
+    assertEquals(0, counter.count);
+  }
 
-    TestHelper.run(face, 5);
-    assertEquals(3, face.sentInterests.size());
-    assertEquals(2, client.totalRetries());
-    assertEquals(1, nData);
-    assertEquals(0, nTimeouts);
+  protected void respondToRetryAttempt() throws IOException, EncodingException {
+    face.getTransport().respondWith(new Data(name));
+    face.processEvents();
+    assertEquals(1, counter.count);
   }
 }

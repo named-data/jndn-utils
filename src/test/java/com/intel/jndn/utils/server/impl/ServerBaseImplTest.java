@@ -13,8 +13,8 @@
  */
 package com.intel.jndn.utils.server.impl;
 
-import com.intel.jndn.mock.MockFace;
 import com.intel.jndn.utils.ProcessingStage;
+import com.intel.jndn.mock.MockFace;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import net.named_data.jndn.Data;
@@ -22,7 +22,6 @@ import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.InterestFilter;
 import net.named_data.jndn.Name;
-import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -33,8 +32,8 @@ import static org.junit.Assert.*;
  */
 public class ServerBaseImplTest {
 
-  Face face;
-  ServerBaseImpl instance;
+  Face face = new MockFace();
+  ServerBaseImpl instance = new ServerBaseImplImpl(face, new Name("/test/base"));
 
   public class ServerBaseImplImpl extends ServerBaseImpl {
 
@@ -46,12 +45,6 @@ public class ServerBaseImplTest {
     public void onInterest(Name prefix, Interest interest, Face face, long interestFilterId, InterestFilter filter) {
       throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-  }
-
-  @Before
-  public void setUp() throws Exception {
-    face = new MockFace();
-    instance = new ServerBaseImplImpl(face, new Name("/test/base"));
   }
 
   /**

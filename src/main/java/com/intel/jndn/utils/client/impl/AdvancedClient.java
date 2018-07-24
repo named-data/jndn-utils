@@ -99,16 +99,6 @@ public class AdvancedClient extends SimpleClient implements SegmentedClient, Str
     try {
       final DataStream stream = getSegmentsAsync(face, interest);
 
-      if (stream.isComplete()) {
-        // special case
-        try {
-          future.complete(stream.assemble());
-        } catch (StreamException exception) {
-          future.completeExceptionally(exception);
-        }
-        return future;
-      }
-
       stream.observe(new OnException() {
         public void onException(Exception exception) {
           future.completeExceptionally(exception);

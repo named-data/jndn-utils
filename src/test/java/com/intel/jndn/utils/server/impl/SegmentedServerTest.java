@@ -13,18 +13,14 @@
  */
 package com.intel.jndn.utils.server.impl;
 
-import com.intel.jndn.mock.MockFace;
-import com.intel.jndn.utils.TestHelper;
 import com.intel.jndn.utils.client.impl.AdvancedClient;
+import com.intel.jndn.mock.MockFace;
 import java.io.IOException;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
-import net.named_data.jndn.encoding.EncodingException;
 import net.named_data.jndn.util.Blob;
 import static org.junit.Assert.*;
-
-import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -33,14 +29,8 @@ import org.junit.Test;
  */
 public class SegmentedServerTest {
 
-  MockFace face;
-  SegmentedServer instance;
-
-  @Before
-  public void setUp() throws Exception {
-    face = new MockFace();
-    instance = new SegmentedServer(face, new Name("/test/prefix"));
-  }
+  MockFace face = new MockFace();
+  SegmentedServer instance = new SegmentedServer(face, new Name("/test/prefix"));
 
   @Test
   public void testGetPrefix() {
@@ -60,18 +50,14 @@ public class SegmentedServerTest {
   }
 
   @Test
-  public void testServe() throws IOException, EncodingException, InterruptedException {
+  public void testServe() throws IOException {
     Data in = new Data(new Name("/test/prefix/serve"));
     in.setContent(new Blob("1234"));
     instance.serve(in);
-
-    face.receive(new Interest(new Name("/test/prefix/serve")));
-
-    TestHelper.run(face, 5);
-
-    assertEquals(1, face.sentData.size());
-    assertEquals("1234", face.sentData.get(0).getContent().toString());
-    assertEquals(in.getName().toUri(), face.sentData.get(0).getName().toUri());
+    Data out = AdvancedClient.getDefault().getSync(face, new Name("/test/prefix/serve"));
+    assertEquals(in.getContent(), out.getContent());
+    assertEquals(in.getName().toUri(), out.getName().toUri());
+    assertEquals("1234", out.getContent().toString());
   }
   
   @Test(expected = IOException.class)
@@ -101,12 +87,10 @@ public class SegmentedServerTest {
     
     Interest interest = new Interest(new Name("/test/prefix/a/b"))
             .setChildSelector(Interest.CHILD_SELECTOR_RIGHT).setInterestLifetimeMilliseconds(100);
-    face.receive(interest);
-
-    TestHelper.run(face, 2);
-
-    assertEquals(1, face.sentData.size());
-    assertEquals("/test/prefix/a/b/c/1", face.sentData.get(0).getName().toUri());
+    Data out = AdvancedClient.getDefault().getSync(face, interest);
+    
+    assertNotNull(out);
+    assertEquals("/test/prefix/a/b/c/1", out.getName().toUri());
     // note that this won't be .../c/2 since .../c/1 satisfies both the Interest
     // name and "c" is the rightmost component (child selectors operate on the
     // next component after the Interest name only)
