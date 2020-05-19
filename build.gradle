@@ -10,7 +10,7 @@ apply plugin: 'maven'
 apply plugin: 'signing'
 
 group = 'net.named-data.jndn-extra'
-version = '1.2.0'
+version = '1.2.1'
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
@@ -41,12 +41,12 @@ configurations {
 }
 
 dependencies {
-  compile 'com.google.guava:guava:25.1-jre'
-  compile 'net.named-data:jndn:0.17'
-  compile 'org.mockito:mockito-core:2.20.0'
+  compile 'com.google.guava:guava:29.0-jre'
+  compile 'net.named-data:jndn:0.24'
+  compile 'org.mockito:mockito-core:3.3.3'
 
   testCompile 'junit:junit:4.12'
-  testCompile 'net.named-data.jndn-extra:jndn-mock:1.1.1'
+  testCompile 'net.named-data.jndn-extra:jndn-mock:1.2.0'
 }
 
 task javadocJar(type: Jar) {

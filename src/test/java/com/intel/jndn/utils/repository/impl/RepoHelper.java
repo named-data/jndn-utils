@@ -35,6 +35,7 @@ public class RepoHelper {
   public static Interest buildInterest(String name) {
     Interest interest = new Interest(new Name(name));
     interest.setInterestLifetimeMilliseconds(2000);
+    interest.setMustBeFresh(true);
     return interest;
   }
 
