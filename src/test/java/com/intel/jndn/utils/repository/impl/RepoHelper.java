@@ -40,13 +40,13 @@ public class RepoHelper {
 
   public static Data buildAlmostStaleData(String staledata) {
     Data data = RepoHelper.buildData(staledata);
-    data.getMetaInfo().setFreshnessPeriod(0);
+    data.getMetaInfo().setFreshnessPeriod(1);
     return data;
   }
 
   public static Data buildFreshData(String staledata) {
     Data data = RepoHelper.buildData(staledata);
-    data.getMetaInfo().setFreshnessPeriod(-1);
+    data.getMetaInfo().setFreshnessPeriod(10000);
     return data;
   }
 }
